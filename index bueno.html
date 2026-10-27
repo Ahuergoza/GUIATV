@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>EPG TV XMLTV</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#0f172a;
+color:white;
+overflow:hidden;
+}
+
+#top{
+padding:10px;
+background:#0284c7;
+}
+
+#controls{
+padding:10px;
+background:#1e293b;
+display:flex;
+gap:10px;
+align-items:center;
+flex-wrap:wrap;
+}
+
+#search{
+width:250px;
+padding:6px;
+}
+
+#grid{
+height:calc(100vh - 150px);
+overflow:auto;
+white-space:nowrap;
+}
+
+.timeline{
+display:flex;
+width:4540px;
+min-width:4540px;
+position:sticky;
+top:0;
+z-index:10;
+background:#0284c7;
+}
+
+.channelCell{
+width:220px;
+min-width:220px;
+padding:8px;
+background:#111827;
+position:sticky;
+left:0;
+z-index:9;
+border-right:1px solid #444;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+
+.hour{
+width:180px;
+min-width:180px;
+padding:8px;
+text-align:center;
+border-right:1px solid #0ea5e9;
+}
+
+.row{
+display:flex;
+width:4540px;
+min-width:4540px;
+height:50px;
+border-bottom:1px solid #334155;
+}
+
+.programArea{
+position:relative;
+width:4320px;
+min-width:4320px;
+height:50px;
+}
+
+.program{
+position:absolute;
+height:38px;
+top:5px;
+background:#475569;
+border-radius:4px;
+overflow:hidden;
+font-size:11px;
+padding:2px;
+cursor:pointer;
+white-space:nowrap;
+}
+
+.program:hover{
+background:#64748b;
+}
+
+#bottomScroll{
+height:20px;
+overflow-x:auto;
+overflow-y:hidden;
+background:#1e293b;
+}
+
+#info{
+position:fixed;
+right:10px;
+top:110px;
+width:340px;
+max-height:500px;
+overflow:auto;
+background:#1e293b;
+padding:10px;
+border:1px solid #475569;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="top">
+<h2>📺 EPG XMLTV</h2>
+</div>
+
+<div id="controls">
+
+<input type="file" id="xmlFile">
+
+<input
+type="text"
+id="search"
+placeholder="Buscar canal">
+
+<select id="days"></select>
+
+<span id="status"></span>
+
+</div>
+
+<div id="grid"></div>
+
+<div id="bottomScroll">
+<div style="width:4540px;height:1px;"></div>
+</div>
+
+<div id="info">
+Seleccione un programa
+</div>
+
+<script>
+
+const PIXELS_PER_MINUTE = 3;
+
+let channels = {};
+let programmes = [];
+let days = [];
+
+document.getElementById("xmlFile")
+.addEventListener("change", loadXML);
+
+document.getElementById("days")
+.addEventListener("change", render);
+
+document.getElementById("search")
+.addEventListener("keyup", render);
+
+function loadXML(e){
+
+const file = e.target.files[0];
+
+if(!file)return;
+
+document.getElementById("status")
+.textContent = "Leyendo XML...";
+
+const reader = new FileReader();
+
+reader.onload = evt => {
+
+const xml =
+new DOMParser()
+.parseFromString(
+evt.target.result,
+"text/xml"
+);
+
+parseXML(xml);
+
+};
+
+reader.readAsText(file);
+
+}
+
+function parseXML(xml){
+
+channels = {};
+programmes = [];
+days = [];
+
+xml.querySelectorAll("channel")
+.forEach(ch=>{
+
+const id = ch.getAttribute("id");
+
+const name =
+ch.querySelector("display-name");
+
+if(name){
+
+channels[id] =
+name.textContent;
+
+}
+
+});
+
+const daySet = new Set();
+
+xml.querySelectorAll("programme")
+.forEach(p=>{
+
+const start =
+p.getAttribute("start");
+
+const stop =
+p.getAttribute("stop");
+
+const day =
+start.substring(0,8);
+
+daySet.add(day);
+
+programmes.push({
+
+channel:
+p.getAttribute("channel"),
+
+start:start,
+
+stop:stop,
+
+title:
+p.querySelector("title")
+?
+p.querySelector("title").textContent
+:
+"",
+
+desc:
+p.querySelector("desc")
+?
+p.querySelector("desc").textContent
+:
+""
+
+});
+
+});
+
+days = [...daySet].sort();
+
+const daySelect =
+document.getElementById("days");
+
+daySelect.innerHTML = "";
+
+days.forEach(d=>{
+
+const opt =
+document.createElement("option");
+
+opt.value=d;
+opt.textContent=d;
+
+daySelect.appendChild(opt);
+
+});
+
+document.getElementById("status")
+.textContent =
+Object.keys(channels).length +
+" canales / " +
+programmes.length +
+" programas";
+
+render();
+
+}
+
+function render(){
+
+const grid =
+document.getElementById("grid");
+
+grid.innerHTML = "";
+
+const timeline =
+document.createElement("div");
+
+timeline.className =
+"timeline";
+
+timeline.innerHTML =
+'<div class="channelCell">Canal</div>';
+
+for(let h=0;h<24;h++){
+
+timeline.innerHTML +=
+'<div class="hour">'
++
+String(h).padStart(2,"0")
++
+':00</div>';
+
+}
+
+grid.appendChild(timeline);
+
+const selectedDay =
+document.getElementById("days").value;
+
+const filter =
+document.getElementById("search")
+.value
+.toLowerCase();
+
+Object.keys(channels)
+.sort((a,b)=>
+channels[a]
+.localeCompare(channels[b])
+)
+.forEach(id=>{
+
+if(
+!channels[id]
+.toLowerCase()
+.includes(filter)
+) return;
+
+const row =
+document.createElement("div");
+
+row.className="row";
+
+const channelDiv =
+document.createElement("div");
+
+channelDiv.className=
+"channelCell";
+
+channelDiv.textContent=
+channels[id];
+
+const area =
+document.createElement("div");
+
+area.className=
+"programArea";
+
+programmes
+.filter(p=>
+p.channel===id &&
+p.start.startsWith(selectedDay)
+)
+.forEach(p=>{
+
+const startHour =
+parseInt(p.start.substr(8,2));
+
+const startMin =
+parseInt(p.start.substr(10,2));
+
+const stopHour =
+parseInt(p.stop.substr(8,2));
+
+const stopMin =
+parseInt(p.stop.substr(10,2));
+
+const start =
+startHour*60+startMin;
+
+const stop =
+stopHour*60+stopMin;
+
+const duration =
+Math.max(
+15,
+stop-start
+);
+
+const div =
+document.createElement("div");
+
+div.className =
+"program";
+
+div.style.left =
+(start*PIXELS_PER_MINUTE)
++"px";
+
+div.style.width =
+(duration*PIXELS_PER_MINUTE)
++"px";
+
+div.textContent =
+p.title;
+
+div.onclick=()=>{
+
+document
+.getElementById("info")
+.innerHTML =
+
+"<h3>"
++p.title+
+"</h3>" +
+
+"<p><b>Inicio:</b> "
++p.start+
+"</p>" +
+
+"<p><b>Fin:</b> "
++p.stop+
+"</p>" +
+
+"<p>"
++p.desc+
+"</p>";
+
+};
+
+area.appendChild(div);
+
+});
+
+row.appendChild(channelDiv);
+row.appendChild(area);
+
+grid.appendChild(row);
+
+});
+
+sincronizarScroll();
+
+}
+
+function sincronizarScroll(){
+
+const grid =
+document.getElementById("grid");
+
+const bottom =
+document.getElementById("bottomScroll");
+
+bottom.onscroll = function(){
+
+grid.scrollLeft =
+bottom.scrollLeft;
+
+};
+
+grid.onscroll = function(){
+
+bottom.scrollLeft =
+grid.scrollLeft;
+
+};
+
+}
+
+</script>
+
+</body>
+</html>
