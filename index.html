@@ -27,7 +27,7 @@
       background: #fff;
       border: 1px dashed #007bff;
       border-radius: 8px;
-      display: none; /* Oculto por defecto, aparece si falla la carga automática */
+      display: none;
     }
 
     .channel-card {
@@ -64,7 +64,7 @@
 
   <!-- Zona de respaldo por si el archivo no se encuentra en la ruta exacta -->
   <div id="manual-fallback">
-    <p>⚠️ No se pudo cargar el archivo automáticamente desde la ruta del servidor. Selecciona el archivo <strong>epg_ripper_ES1_2.xml</strong> manualmente:</p>
+    <p>⚠️ No se pudo cargar el archivo automáticamente desde el servidor. Selecciona el archivo <strong>epg_ripper_ES1_2.xml</strong> manualmente:</p>
     <input type="file" id="fileInput" accept=".xml">
   </div>
 
@@ -78,7 +78,8 @@
       const statusDiv = document.getElementById('status');
       
       try {
-        const response = await fetch(xmlFileName);
+        // Añadimos un parámetro de tiempo (?v=...) para forzar a GitHub a descargar la versión fresca y evitar caché
+        const response = await fetch(xmlFileName + '?v=' + new Date().getTime());
 
         if (!response.ok) {
           throw new Error(`Archivo no encontrado (Código HTTP: ${response.status})`);
