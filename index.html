@@ -21,6 +21,15 @@
     .success { background-color: #d4edda; color: #155724; }
     .error { background-color: #f8d7da; color: #721c24; }
     
+    #manual-fallback {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #fff;
+      border: 1px dashed #007bff;
+      border-radius: 8px;
+      display: none; /* Oculto por defecto, aparece si falla la carga automática */
+    }
+
     .channel-card {
       background: #fff;
       border: 1px solid #ddd;
@@ -51,14 +60,18 @@
 <body>
 
   <h1>Guía de TV (EPG)</h1>
-  <!-- Estado de carga -->
-  <div id="status" class="loading">Cargando la guía de televisión automáticamente...</div>
+  <div id="status" class="loading">Cargando la guía automáticamente...</div>
 
-  <!-- Contenedor del EPG -->
+  <!-- Zona de respaldo por si el archivo no se encuentra en la ruta exacta -->
+  <div id="manual-fallback">
+    <p>⚠️ No se pudo cargar el archivo automáticamente desde la ruta del servidor. Selecciona el archivo <strong>epg_ripper_ES1_2.xml</strong> manualmente:</p>
+    <input type="file" id="fileInput" accept=".xml">
+  </div>
+
   <div id="epg-container"></div>
 
   <script>
-    // Nombre del archivo XML en la misma ruta de GitHub
+    // Nombre del archivo XML en el repositorio
     const xmlFileName = 'epg_ripper_ES1_2.xml';
 
     async function loadXMLAuto() {
@@ -68,28 +81,35 @@
         const response = await fetch(xmlFileName);
 
         if (!response.ok) {
-          throw new Error(`No se pudo encontrar el archivo en el repositorio (Estado: ${response.status})`);
+          throw new Error(`Archivo no encontrado (Código HTTP: ${response.status})`);
         }
 
         const xmlText = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-
-        const parserError = xmlDoc.querySelector("parsererror");
-        if (parserError) {
-          throw new Error("El archivo XML tiene un formato inválido.");
-        }
-
-        statusDiv.className = 'status success';
-        statusDiv.textContent = `Guía cargada correctamente desde GitHub.`;
-
-        renderEPG(xmlDoc);
+        procesarYMostrarXML(xmlText, "Guía cargada automáticamente con éxito.");
 
       } catch (error) {
+        console.warn("Fallo en la carga automática:", error);
         statusDiv.className = 'status error';
-        statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}<br><small>Comprueba que el archivo "epg_ripper_ES1_2.xml" está subido exactamente en la misma carpeta raíz que index.html.</small>`;
-        console.error("Error:", error);
+        statusDiv.textContent = 'La carga automática falló. Usa el selector manual de abajo.';
+        document.getElementById('manual-fallback').style.display = 'block';
       }
+    }
+
+    function procesarYMostrarXML(xmlText, mensajeExito) {
+      const statusDiv = document.getElementById('status');
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+      const parserError = xmlDoc.querySelector("parsererror");
+      if (parserError) {
+        throw new Error("El archivo XML tiene un formato inválido.");
+      }
+
+      statusDiv.className = 'status success';
+      statusDiv.textContent = mensajeExito;
+      document.getElementById('manual-fallback').style.display = 'none';
+
+      renderEPG(xmlDoc);
     }
 
     function renderEPG(xml) {
@@ -135,6 +155,22 @@
         container.appendChild(channelDiv);
       });
     }
+
+    // Evento para el selector manual por si salta el aviso
+    document.getElementById('fileInput').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          procesarYMostrarXML(e.target.result, `Archivo "${file.name}" cargado manualmente con éxito.`);
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
 
     // Ejecutar al cargar la página
     document.addEventListener('DOMContentLoaded', loadXMLAuto);
