@@ -38,10 +38,11 @@ overflow:auto;
 white-space:nowrap;
 }
 
+/* Ampliado a 28 horas (220px canal + 5040px de programas = 5260px) */
 .timeline{
 display:flex;
-width:4540px;
-min-width:4540px;
+width:5260px;
+min-width:5260px;
 position:sticky;
 top:0;
 z-index:10;
@@ -72,16 +73,16 @@ border-right:1px solid #0ea5e9;
 
 .row{
 display:flex;
-width:4540px;
-min-width:4540px;
+width:5260px;
+min-width:5260px;
 height:50px;
 border-bottom:1px solid #334155;
 }
 
 .programArea{
 position:relative;
-width:4320px;
-min-width:4320px;
+width:5040px;
+min-width:5040px;
 height:50px;
 }
 
@@ -139,7 +140,7 @@ border:1px solid #475569;
 <div id="grid"></div>
 
 <div id="bottomScroll">
-<div style="width:4540px;height:1px;"></div>
+<div style="width:5260px;height:1px;"></div>
 </div>
 
 <div id="info">
@@ -165,7 +166,6 @@ let programmes = [];
 let days = [];
 const EPG_URL = "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml?t=" + Date.now();
 
-// Carga automática inicial y eventos
 cargarEPGInternet();
 document.getElementById("xmlFile").addEventListener("change", loadXML);
 document.getElementById("days").addEventListener("change", render);
@@ -180,7 +180,7 @@ const texto = await response.text();
 const xml = new DOMParser().parseFromString(texto, "text/xml");
 parseXML(xml);
 }catch(err){
-document.getElementById("status").textContent = "Error: " + err.message + " (Prueba a cargar el XML con el botón)";
+document.getElementById("status").textContent = "Error: " + err.message;
 console.error(err);
 }
 }
@@ -268,8 +268,12 @@ if(!selectedDay) return;
 const timeline = document.createElement("div");
 timeline.className = "timeline";
 timeline.innerHTML = '<div class="channelCell">Canal</div>';
-for(let h=0; h<24; h++){
-timeline.innerHTML += '<div class="hour">' + String(h).padStart(2,"0") + ':00</div>';
+
+// Generamos 28 horas (00:00 a 03:00 del día siguiente) para que la franja nocturna quepa entera
+for(let h=0; h<28; h++){
+let displayHour = h % 24;
+let label = String(displayHour).padStart(2,"0") + ":00" + (h >= 24 ? " (+1)" : "");
+timeline.innerHTML += '<div class="hour">' + label + '</div>';
 }
 grid.appendChild(timeline);
 
@@ -277,7 +281,7 @@ const year = parseInt(selectedDay.substring(0,4));
 const month = parseInt(selectedDay.substring(4,6)) - 1;
 const day = parseInt(selectedDay.substring(6,8));
 const dayStartTimestamp = new Date(year, month, day, 0, 0, 0).getTime();
-const dayEndTimestamp = dayStartTimestamp + 24 * 60 * 60 * 1000;
+const dayEndTimestamp = dayStartTimestamp + 28 * 60 * 60 * 1000; // Margen de 28 horas
 
 const filter = document.getElementById("search").value.toLowerCase();
 
@@ -312,7 +316,7 @@ let startMinutes = (startDate.getTime() - dayStartTimestamp) / (1000 * 60);
 let stopMinutes = (stopDate.getTime() - dayStartTimestamp) / (1000 * 60);
 
 if (startMinutes < 0) startMinutes = 0;
-if (stopMinutes > 1440) stopMinutes = 1440;
+if (stopMinutes > 1680) stopMinutes = 1680; // Límite de 28 horas (1680 min)
 
 let duration = stopMinutes - startMinutes;
 duration = Math.max(15, duration);
