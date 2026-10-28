@@ -3,21 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Visor EPG XMLTV</title>
+<title>Guía TV</title>
 
 <style>
+
 body{
     font-family:Arial,sans-serif;
-    margin:20px;
     background:#f4f4f9;
+    margin:20px;
     color:#333;
 }
 
 #status{
-    font-weight:bold;
-    margin-bottom:15px;
     padding:10px;
-    border-radius:4px;
+    margin-bottom:20px;
+    border-radius:5px;
+    font-weight:bold;
 }
 
 .loading{
@@ -37,65 +38,64 @@ body{
 
 .channel-card{
     background:white;
-    border:1px solid #ddd;
     border-radius:8px;
     padding:15px;
     margin-bottom:15px;
-    box-shadow:0 2px 4px rgba(0,0,0,.05);
+    box-shadow:0 2px 4px rgba(0,0,0,.1);
 }
 
 .channel-header{
     display:flex;
     align-items:center;
     gap:15px;
-    border-bottom:1px solid #eee;
+    border-bottom:1px solid #ddd;
     padding-bottom:10px;
     margin-bottom:10px;
 }
 
 .channel-header img{
-    max-height:40px;
     max-width:80px;
+    max-height:40px;
 }
 
 .programme{
     background:#f8f9fa;
     border-left:4px solid #007bff;
     padding:8px;
-    margin-bottom:6px;
+    margin:5px 0;
 }
 
 .time{
     color:#666;
     font-size:0.9em;
 }
-</style>
 
+</style>
 </head>
+
 <body>
 
 <h1>Guía TV</h1>
 
 <div id="status" class="loading">
-Cargando guía...
+Cargando EPG...
 </div>
 
 <div id="epg-container"></div>
 
 <script>
 
-// ======================
-// URL XML DobleM
-// ======================
+// ==========================================
+// XMLTV DE DOBLEM
+// ==========================================
 
 const EPG_URL =
-"https://raw.githubusercontent.com/davidmuma/EPG_dobleM/main/guide.xml?nocache=" + Date.now();
+"https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml?t=" + Date.now();
 
 
-// ======================
+// ==========================================
 // CANALES A MOSTRAR
-// Sustituye por los tuyos
-// ======================
+// ==========================================
 
 const CANALES_VISIBLES = [
 
@@ -109,32 +109,58 @@ const CANALES_VISIBLES = [
 ];
 
 
-// ======================
-// Cargar XML
-// ======================
+// ==========================================
+
+function formatearHora(fechaXML){
+
+    if(!fechaXML) return "";
+
+    const hora = fechaXML.substring(8,10);
+    const minuto = fechaXML.substring(10,12);
+
+    return hora + ":" + minuto;
+}
+
+
+// ==========================================
 
 async function cargarEPG(){
 
-    const statusDiv =
+    const status =
         document.getElementById("status");
 
     try{
 
-        statusDiv.className="loading";
-        statusDiv.textContent=
-            "Descargando EPG actualizada...";
+        status.className = "loading";
+        status.textContent =
+            "Descargando guía...";
+
+        console.log("Intentando cargar:");
+        console.log(EPG_URL);
 
         const response =
             await fetch(EPG_URL);
 
+        console.log("HTTP:",response.status);
+
         if(!response.ok){
+
             throw new Error(
-                "No se pudo descargar la EPG"
+                "HTTP " + response.status
             );
+
         }
 
         const xmlText =
             await response.text();
+
+        if(xmlText.length < 100){
+
+            throw new Error(
+                "XML vacío"
+            );
+
+        }
 
         const parser =
             new DOMParser();
@@ -145,48 +171,43 @@ async function cargarEPG(){
                 "text/xml"
             );
 
+        const errorXML =
+            xml.querySelector(
+                "parsererror"
+            );
+
+        if(errorXML){
+
+            throw new Error(
+                "XML inválido"
+            );
+
+        }
+
         renderEPG(xml);
 
-        statusDiv.className="success";
+        status.className =
+            "success";
 
-        statusDiv.textContent=
-            "EPG actualizada correctamente - "
-            + new Date().toLocaleString();
+        status.textContent =
+            "EPG cargada correctamente";
 
     }
     catch(error){
 
         console.error(error);
 
-        statusDiv.className="error";
+        status.className =
+            "error";
 
-        statusDiv.textContent=
-            "Error: " + error.message;
+        status.textContent =
+            "ERROR: " + error.message;
     }
+
 }
 
 
-// ======================
-// Formatear fecha XMLTV
-// ======================
-
-function formatearHora(fechaXML){
-
-    if(!fechaXML) return "";
-
-    const hora =
-        fechaXML.substring(8,10);
-
-    const minuto =
-        fechaXML.substring(10,12);
-
-    return hora + ":" + minuto;
-}
-
-
-// ======================
-// Mostrar canales
-// ======================
+// ==========================================
 
 function renderEPG(xml){
 
@@ -195,19 +216,138 @@ function renderEPG(xml){
             "epg-container"
         );
 
-    container.innerHTML="";
+    container.innerHTML = "";
 
     const channels =
-        xml.querySelectorAll("channel");
+        xml.querySelectorAll(
+            "channel"
+        );
 
-    channels.forEach(channel => {
+    channels.forEach(channel=>{
 
         const id =
-            channel.getAttribute("id");
+            channel.getAttribute(
+                "id"
+            );
 
-        const displayName =
+        const nombre =
             channel.querySelector(
                 "display-name"
             )?.textContent || id;
 
-       
+        const mostrar =
+            CANALES_VISIBLES.some(
+                c => nombre
+                     .toUpperCase()
+                     .includes(
+                         c.toUpperCase()
+                     )
+            );
+
+        if(!mostrar) return;
+
+        const logo =
+            channel.querySelector(
+                "icon"
+            )?.getAttribute(
+                "src"
+            );
+
+        const programas =
+            xml.querySelectorAll(
+                `programme[channel="${id}"]`
+            );
+
+        const tarjeta =
+            document.createElement(
+                "div"
+            );
+
+        tarjeta.className =
+            "channel-card";
+
+        let html = `
+        <div class="channel-header">
+            ${
+                logo
+                ? `<img src="${logo}">`
+                : ""
+            }
+            <h2>${nombre}</h2>
+        </div>
+        `;
+
+        let contador = 0;
+
+        programas.forEach(programa=>{
+
+            if(contador >= 15){
+                return;
+            }
+
+            const titulo =
+                programa.querySelector(
+                    "title"
+                )?.textContent
+                || "Sin título";
+
+            const inicio =
+                formatearHora(
+                    programa.getAttribute(
+                        "start"
+                    )
+                );
+
+            const fin =
+                formatearHora(
+                    programa.getAttribute(
+                        "stop"
+                    )
+                );
+
+            html += `
+            <div class="programme">
+                <strong>
+                    ${titulo}
+                </strong>
+                <div class="time">
+                    ${inicio} - ${fin}
+                </div>
+            </div>
+            `;
+
+            contador++;
+
+        });
+
+        tarjeta.innerHTML =
+            html;
+
+        container.appendChild(
+            tarjeta
+        );
+
+    });
+}
+
+
+// ==========================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        cargarEPG();
+
+        setInterval(
+            cargarEPG,
+            1800000
+        );
+
+    }
+);
+
+</script>
+
+</body>
+</html>
