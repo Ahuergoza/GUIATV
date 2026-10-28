@@ -164,15 +164,56 @@ const PIXELS_PER_MINUTE = 3;
 let channels = {};
 let programmes = [];
 let days = [];
+const EPG_URL =
+"https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml?t=" + Date.now();
 
-document.getElementById("xmlFile")
-.addEventListener("change", loadXML);
+cargarEPGInternet();
 
 document.getElementById("days")
 .addEventListener("change", render);
 
 document.getElementById("search")
 .addEventListener("keyup", render);
+async function cargarEPGInternet(){
+
+document.getElementById("status")
+.textContent = "Descargando EPG...";
+
+try{
+
+const response =
+await fetch(EPG_URL);
+
+if(!response.ok){
+throw new Error(
+"HTTP " + response.status
+);
+}
+
+const texto =
+await response.text();
+
+const xml =
+new DOMParser()
+.parseFromString(
+texto,
+"text/xml"
+);
+
+parseXML(xml);
+
+}
+catch(err){
+
+document.getElementById("status")
+.textContent =
+"Error: " + err.message;
+
+console.error(err);
+
+}
+
+}
 
 function loadXML(e){
 
