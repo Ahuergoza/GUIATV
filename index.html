@@ -1,177 +1,485 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visor EPG XMLTV</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f4f4f9;
-      color: #333;
-    }
-    #status {
-      font-weight: bold;
-      margin-bottom: 15px;
-      padding: 10px;
-      border-radius: 4px;
-    }
-    .loading { background-color: #e2e3e5; color: #383d41; }
-    .success { background-color: #d4edda; color: #155724; }
-    .error { background-color: #f8d7da; color: #721c24; }
-    
-    #manual-load {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: #fff;
-      border: 1px dashed #007bff;
-      border-radius: 8px;
-    }
+<meta charset="UTF-8">
+<title>EPG TV XMLTV</title>
 
-    .channel-card {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .channel-header {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 10px;
-    }
-    .channel-header img {
-      max-height: 40px;
-      max-width: 80px;
-    }
-    .programme {
-      margin-top: 10px;
-      padding: 8px;
-      background: #f9f9f9;
-      border-left: 3px solid #007bff;
-    }
-  </style>
+<style>
+
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#0f172a;
+color:white;
+overflow:hidden;
+}
+
+#top{
+padding:10px;
+background:#0284c7;
+}
+
+#controls{
+padding:10px;
+background:#1e293b;
+display:flex;
+gap:10px;
+align-items:center;
+flex-wrap:wrap;
+}
+
+#search{
+width:250px;
+padding:6px;
+}
+
+#grid{
+height:calc(100vh - 150px);
+overflow:auto;
+white-space:nowrap;
+}
+
+.timeline{
+display:flex;
+width:4540px;
+min-width:4540px;
+position:sticky;
+top:0;
+z-index:10;
+background:#0284c7;
+}
+
+.channelCell{
+width:220px;
+min-width:220px;
+padding:8px;
+background:#111827;
+position:sticky;
+left:0;
+z-index:9;
+border-right:1px solid #444;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+
+.hour{
+width:180px;
+min-width:180px;
+padding:8px;
+text-align:center;
+border-right:1px solid #0ea5e9;
+}
+
+.row{
+display:flex;
+width:4540px;
+min-width:4540px;
+height:50px;
+border-bottom:1px solid #334155;
+}
+
+.programArea{
+position:relative;
+width:4320px;
+min-width:4320px;
+height:50px;
+}
+
+.program{
+position:absolute;
+height:38px;
+top:5px;
+background:#475569;
+border-radius:4px;
+overflow:hidden;
+font-size:11px;
+padding:2px;
+cursor:pointer;
+white-space:nowrap;
+}
+
+.program:hover{
+background:#64748b;
+}
+
+#bottomScroll{
+height:20px;
+overflow-x:auto;
+overflow-y:hidden;
+background:#1e293b;
+}
+
+#info{
+position:fixed;
+right:10px;
+top:110px;
+width:340px;
+max-height:500px;
+overflow:auto;
+background:#1e293b;
+padding:10px;
+border:1px solid #475569;
+}
+
+</style>
+
 </head>
+
 <body>
 
-  <h1>Guía de TV (EPG)</h1>
-  <div id="status" class="loading">Intentando cargar epg_ripper_ES1_2.xml automáticamente...</div>
+<div id="top">
+<h2>📺 EPG XMLTV</h2>
+</div>
 
-  <!-- Contenedor alternativo por si el navegador bloquea la carga automática -->
-  <div id="manual-load" style="display: none;">
-    <p>⚠️ Tu navegador bloqueó la carga automática desde el disco local. Selecciona el archivo manualmente:</p>
-    <input type="file" id="fileInput" accept=".xml">
-  </div>
+<div id="controls">
 
-  <div id="epg-container"></div>
+<input type="file" id="xmlFile">
 
-  <script>
-    const xmlFileName = 'epg_ripper_ES1_2.xml';
+<input
+type="text"
+id="search"
+placeholder="Buscar canal">
 
-    // 1. Intentar carga automática al iniciar
-    async function loadXMLAuto() {
-      const statusDiv = document.getElementById('status');
-      
-      try {
-        const response = await fetch(xmlFileName);
-        if (!response.ok) throw new Error("No se pudo acceder al archivo automáticamente.");
-        
-        const xmlText = await response.text();
-        procesarYMostrarXML(xmlText, `Archivo "${xmlFileName}" cargado automáticamente.`);
+<select id="days"></select>
 
-      } catch (error) {
-        // Si falla (por seguridad del navegador), mostramos el selector manual
-        console.warn("Fandó la carga automática, mostrando opción manual:", error);
-        statusDiv.className = 'status error';
-        statusDiv.textContent = 'No se pudo cargar automáticamente debido a las políticas del navegador.';
-        document.getElementById('manual-load').style.display = 'block';
-      }
-    }
+<span id="status"></span>
 
-    // 2. Procesar el texto del XML y renderizarlo
-    function procesarYMostrarXML(xmlText, mensajeExito) {
-      const statusDiv = document.getElementById('status');
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+</div>
 
-      const parserError = xmlDoc.querySelector("parsererror");
-      if (parserError) {
-        throw new Error("El archivo seleccionado no tiene un formato XML válido.");
-      }
+<div id="grid"></div>
 
-      statusDiv.className = 'status success';
-      statusDiv.textContent = mensajeExito;
-      document.getElementById('manual-load').style.display = 'none';
+<div id="bottomScroll">
+<div style="width:4540px;height:1px;"></div>
+</div>
 
-      renderEPG(xmlDoc);
-    }
+<div id="info">
+Seleccione un programa
+</div>
 
-    // 3. Dibujar canales y programas en pantalla
-    function renderEPG(xml) {
-      const container = document.getElementById('epg-container');
-      container.innerHTML = ''; 
+<script>
 
-      const channels = xml.querySelectorAll('channel');
+const PIXELS_PER_MINUTE = 3;
 
-      channels.forEach(channel => {
-        const id = channel.getAttribute('id');
-        const displayName = channel.querySelector('display-name')?.textContent || id;
-        const iconSrc = channel.querySelector('icon')?.getAttribute('src');
+let channels = {};
+let programmes = [];
+let days = [];
 
-        const channelDiv = document.createElement('div');
-        channelDiv.className = 'channel-card';
+document.getElementById("xmlFile")
+.addEventListener("change", loadXML);
 
-        let html = `
-          <div class="channel-header">
-            ${iconSrc ? `<img src="${iconSrc}" alt="${displayName}">` : ''}
-            <h2>${displayName} <small>(${id})</small></h2>
-          </div>
-        `;
+document.getElementById("days")
+.addEventListener("change", render);
 
-        const programmes = xml.querySelectorAll(`programme[channel="${id}"]`);
-        if (programmes.length > 0) {
-          html += '<h3>Programación:</h3>';
-          programmes.forEach(prog => {
-            const title = prog.querySelector('title')?.textContent || 'Sin título';
-            const subTitle = prog.querySelector('sub-title')?.textContent;
-            const desc = prog.querySelector('desc')?.textContent;
+document.getElementById("search")
+.addEventListener("keyup", render);
 
-            html += `
-              <div class="programme">
-                <strong>${title}</strong> ${subTitle ? `- <em>${subTitle}</em>` : ''}
-                ${desc ? `<p>${desc}</p>` : ''}
-              </div>
-            `;
-          });
-        }
+function loadXML(e){
 
-        channelDiv.innerHTML = html;
-        container.appendChild(channelDiv);
-      });
-    }
+const file = e.target.files[0];
 
-    // Evento para el selector manual de archivos
-    document.getElementById('fileInput').addEventListener('change', function(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+if(!file)return;
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          procesarYMostrarXML(e.target.result, `Archivo "${file.name}" cargado manualmente con éxito.`);
-        } catch (err) {
-          alert(err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
+document.getElementById("status")
+.textContent = "Leyendo XML...";
 
-    // Ejecutar al iniciar
-    document.addEventListener('DOMContentLoaded', loadXMLAuto);
-  </script>
+const reader = new FileReader();
+
+reader.onload = evt => {
+
+const xml =
+new DOMParser()
+.parseFromString(
+evt.target.result,
+"text/xml"
+);
+
+parseXML(xml);
+
+};
+
+reader.readAsText(file);
+
+}
+
+function parseXML(xml){
+
+channels = {};
+programmes = [];
+days = [];
+
+xml.querySelectorAll("channel")
+.forEach(ch=>{
+
+const id = ch.getAttribute("id");
+
+const name =
+ch.querySelector("display-name");
+
+if(name){
+
+channels[id] =
+name.textContent;
+
+}
+
+});
+
+const daySet = new Set();
+
+xml.querySelectorAll("programme")
+.forEach(p=>{
+
+const start =
+p.getAttribute("start");
+
+const stop =
+p.getAttribute("stop");
+
+const day =
+start.substring(0,8);
+
+daySet.add(day);
+
+programmes.push({
+
+channel:
+p.getAttribute("channel"),
+
+start:start,
+
+stop:stop,
+
+title:
+p.querySelector("title")
+?
+p.querySelector("title").textContent
+:
+"",
+
+desc:
+p.querySelector("desc")
+?
+p.querySelector("desc").textContent
+:
+""
+
+});
+
+});
+
+days = [...daySet].sort();
+
+const daySelect =
+document.getElementById("days");
+
+daySelect.innerHTML = "";
+
+days.forEach(d=>{
+
+const opt =
+document.createElement("option");
+
+opt.value=d;
+opt.textContent=d;
+
+daySelect.appendChild(opt);
+
+});
+
+document.getElementById("status")
+.textContent =
+Object.keys(channels).length +
+" canales / " +
+programmes.length +
+" programas";
+
+render();
+
+}
+
+function render(){
+
+const grid =
+document.getElementById("grid");
+
+grid.innerHTML = "";
+
+const timeline =
+document.createElement("div");
+
+timeline.className =
+"timeline";
+
+timeline.innerHTML =
+'<div class="channelCell">Canal</div>';
+
+for(let h=0;h<24;h++){
+
+timeline.innerHTML +=
+'<div class="hour">'
++
+String(h).padStart(2,"0")
++
+':00</div>';
+
+}
+
+grid.appendChild(timeline);
+
+const selectedDay =
+document.getElementById("days").value;
+
+const filter =
+document.getElementById("search")
+.value
+.toLowerCase();
+
+Object.keys(channels)
+.sort((a,b)=>
+channels[a]
+.localeCompare(channels[b])
+)
+.forEach(id=>{
+
+if(
+!channels[id]
+.toLowerCase()
+.includes(filter)
+) return;
+
+const row =
+document.createElement("div");
+
+row.className="row";
+
+const channelDiv =
+document.createElement("div");
+
+channelDiv.className=
+"channelCell";
+
+channelDiv.textContent=
+channels[id];
+
+const area =
+document.createElement("div");
+
+area.className=
+"programArea";
+
+programmes
+.filter(p=>
+p.channel===id &&
+p.start.startsWith(selectedDay)
+)
+.forEach(p=>{
+
+const startHour =
+parseInt(p.start.substr(8,2));
+
+const startMin =
+parseInt(p.start.substr(10,2));
+
+const stopHour =
+parseInt(p.stop.substr(8,2));
+
+const stopMin =
+parseInt(p.stop.substr(10,2));
+
+const start =
+startHour*60+startMin;
+
+const stop =
+stopHour*60+stopMin;
+
+const duration =
+Math.max(
+15,
+stop-start
+);
+
+const div =
+document.createElement("div");
+
+div.className =
+"program";
+
+div.style.left =
+(start*PIXELS_PER_MINUTE)
++"px";
+
+div.style.width =
+(duration*PIXELS_PER_MINUTE)
++"px";
+
+div.textContent =
+p.title;
+
+div.onclick=()=>{
+
+document
+.getElementById("info")
+.innerHTML =
+
+"<h3>"
++p.title+
+"</h3>" +
+
+"<p><b>Inicio:</b> "
++p.start+
+"</p>" +
+
+"<p><b>Fin:</b> "
++p.stop+
+"</p>" +
+
+"<p>"
++p.desc+
+"</p>";
+
+};
+
+area.appendChild(div);
+
+});
+
+row.appendChild(channelDiv);
+row.appendChild(area);
+
+grid.appendChild(row);
+
+});
+
+sincronizarScroll();
+
+}
+
+function sincronizarScroll(){
+
+const grid =
+document.getElementById("grid");
+
+const bottom =
+document.getElementById("bottomScroll");
+
+bottom.onscroll = function(){
+
+grid.scrollLeft =
+bottom.scrollLeft;
+
+};
+
+grid.onscroll = function(){
+
+bottom.scrollLeft =
+grid.scrollLeft;
+
+};
+
+}
+
+</script>
+
 </body>
 </html>
