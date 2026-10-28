@@ -163,10 +163,27 @@ const PIXELS_PER_MINUTE = 3;
 let channels = {};
 let programmes = [];
 let days = [];
+const EPG_URL = "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml?t=" + Date.now();
 
+// Carga automática inicial y eventos
+cargarEPGInternet();
 document.getElementById("xmlFile").addEventListener("change", loadXML);
 document.getElementById("days").addEventListener("change", render);
 document.getElementById("search").addEventListener("keyup", render);
+
+async function cargarEPGInternet(){
+document.getElementById("status").textContent = "Descargando EPG...";
+try{
+const response = await fetch(EPG_URL);
+if(!response.ok) throw new Error("HTTP " + response.status);
+const texto = await response.text();
+const xml = new DOMParser().parseFromString(texto, "text/xml");
+parseXML(xml);
+}catch(err){
+document.getElementById("status").textContent = "Error: " + err.message + " (Prueba a cargar el XML con el botón)";
+console.error(err);
+}
+}
 
 function loadXML(e){
 const file = e.target.files[0];
@@ -188,7 +205,7 @@ reader.readAsText(file);
 function parseXML(xml){
 channels = {};
 programmes = [];
-days = new Set();
+const daySet = new Set();
 
 xml.querySelectorAll("channel").forEach(ch=>{
 const id = ch.getAttribute("id");
@@ -204,7 +221,7 @@ const stop = p.getAttribute("stop");
 if(!start || !stop) return;
 
 const day = start.substring(0,8);
-days.add(day);
+daySet.add(day);
 
 programmes.push({
 channel: p.getAttribute("channel"),
@@ -215,7 +232,7 @@ desc: p.querySelector("desc") ? p.querySelector("desc").textContent : ""
 });
 });
 
-days = [...days].sort();
+days = [...daySet].sort();
 
 const daySelect = document.getElementById("days");
 daySelect.innerHTML = "";
