@@ -381,7 +381,23 @@ Object.keys(channels)
 channels[a]
 .localeCompare(channels[b])
 )
+const CANALES_VISIBLES = [
+
+"La 1",
+"La 2",
+"Telecinco",
+"Antena 3",
+"laSexta",
+"Cuatro"
+
+];
 .forEach(id=>{
+
+if(
+!CANALES_VISIBLES.includes(
+channels[id]
+)
+) return;
 
 if(
 !channels[id]
