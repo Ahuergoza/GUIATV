@@ -1,365 +1,5 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>PAPITO TV - ¿DÓNDE PONEN ESO?</title>
-
-<style>
-body{
-margin:0;
-font-family:Arial,sans-serif;
-background:#0f172a;
-color:white;
-overflow:hidden;
-}
-
-#top{
-padding:10px;
-background:#0284c7;
-}
-
-#controls{
-padding:10px;
-background:#1e293b;
-display:flex;
-gap:10px;
-align-items:center;
-flex-wrap:wrap;
-}
-
-#search{
-width:250px;
-padding:6px;
-}
-
-#grid{
-height:calc(100vh - 150px);
-overflow:auto;
-white-space:nowrap;
-}
-
-.timeline{
-display:flex;
-width:4540px;
-min-width:4540px;
-position:sticky;
-top:0;
-z-index:10;
-background:#0284c7;
-}
-
-.channelCell{
-width:220px;
-min-width:220px;
-padding:8px;
-background:#111827;
-position:sticky;
-left:0;
-z-index:9;
-border-right:1px solid #444;
-overflow:hidden;
-text-overflow:ellipsis;
-white-space:nowrap;
-}
-
-.hour{
-width:180px;
-min-width:180px;
-padding:8px;
-text-align:center;
-border-right:1px solid #0ea5e9;
-}
-
-.row{
-display:flex;
-width:4540px;
-min-width:4540px;
-height:50px;
-border-bottom:1px solid #334155;
-}
-
-.programArea{
-position:relative;
-width:4320px;
-min-width:4320px;
-height:50px;
-}
-
-.program{
-position:absolute;
-height:38px;
-top:5px;
-background:#475569;
-border-radius:4px;
-overflow:hidden;
-font-size:11px;
-padding:2px;
-cursor:pointer;
-white-space:nowrap;
-}
-
-.program:hover{
-background:#64748b;
-}
-
-#bottomScroll{
-height:20px;
-overflow-x:auto;
-overflow-y:hidden;
-background:#1e293b;
-}
-
-#info{
-position:fixed;
-right:10px;
-top:110px;
-width:340px;
-max-height:500px;
-overflow:auto;
-background:#1e293b;
-padding:10px;
-border:1px solid #475569;
-}
-</style>
-</head>
-
-<body>
-
-<div id="top">
-<h2>📺 PAPITO TV - ¿DÓNDE PONEN ESO?</h2>
-</div>
-
-<div id="controls">
-<input type="file" id="xmlFile">
-<input type="text" id="search" placeholder="Buscar canal">
-<select id="days"></select>
-<span id="status"></span>
-</div>
-
-<div id="grid"></div>
-
-<div id="bottomScroll">
-<div style="width:4540px;height:1px;"></div>
-</div>
-
-<div id="info">
-Seleccione un programa
-</div>
-
 <script>
-// ==========================================
-// CONFIGURA AQUÍ TUS CANALES FAVORITOS
-// Coloca los IDs exactos que aparecen en el XML
-// Si dejas la lista vacía [], se mostrarán todos.
-// ==========================================
-const CANALES_PERMITIDOS = [
-     "La 1 HD",
-    "La 2",
-    "Antena 3 HD",
-    "Cuatro HD",
-    "Telecinco HD",
-    "La Sexta HD",
-    "TPA7 Asturias",
-    "TPA8 Asturias",
-    "24 Horas",
-    "AMC HD",
-    "AXN HD",
-    "BOM Cine",
-    "Be Mad",
-    "Boing",
-    "Calle 13 HD",
-    "Canal Cocina",
-    "Canal FlixOlé 1",
-    "Canal FlixOlé 2",
-    "Canal Hollywood HD",
-    "Clan",
-    "Cocina",
-    "Comedy Central HD",
-    "Cosmo HD",
-    "DARK",
-    "DAZN 1 HD",
-    "DAZN 2 HD",
-    "DAZN 3 HD",
-    "DAZN 4 HD",
-    "DAZN Baloncesto",
-    "DAZN Baloncesto 2",
-    "DAZN Baloncesto 3",
-    "DAZN F1",
-    "DAZN F1 HD",
-    "DAZN LaLiga HD",
-    "DMAX",
-    "Energy",
-    "Eurosport 1 HD",
-    "Eurosport 2",
-    "Factoría de Ficción",
-    "Historia",
-    "LaLiga TV Hypermotion 2",
-    "LaLiga TV Hypermotion 3",
-    "LaLiga TV Hypermotion 4",
-    "LaLiga TV Hypermotion HD",
-    "M+ Acción HD",
-    "M+ Baloncesto",
-    "M+ Baloncesto 2",
-    "M+ Baloncesto 3",
-    "M+ Baloncesto 4",
-    "M+ Baloncesto 5",
-    "M+ Cine Español",
-    "M+ Clásicos HD",
-    "M+ Comedia HD",
-    "M+ Deportes 2 HD",
-    "M+ Deportes 3",
-    "M+ Deportes 4",
-    "M+ Deportes 5",
-    "M+ Deportes 6",
-    "M+ Deportes 7",
-    "M+ Deportes 8",
-    "M+ Deportes HD",
-    "M+ Documentales HD",
-    "M+ Drama HD",
-    "M+ Estrenos HD",
-    "M+ Hits HD",
-    "M+ Indie HD",
-    "M+ LaLiga 2 HD",
-    "M+ LaLiga 2 HDR",
-    "M+ LaLiga 3 HD",
-    "M+ LaLiga 4",
-    "M+ LaLiga 5",
-    "M+ LaLiga 6",
-    "M+ LaLiga HD",
-    "M+ LaLiga HDR",
-    "M+ Liga de Campeones 10",
-    "M+ Liga de Campeones 11",
-    "M+ Liga de Campeones 12",
-    "M+ Liga de Campeones 13",
-    "M+ Liga de Campeones 2 HD",
-    "M+ Liga de Campeones 3 HD",
-    "M+ Liga de Campeones 4",
-    "M+ Liga de Campeones 5",
-    "M+ Liga de Campeones 6",
-    "M+ Liga de Campeones 7",
-    "M+ Liga de Campeones 8",
-    "M+ Liga de Campeones 9",
-    "M+ Liga de Campeones HD",
-    "M+ Originales HD",
-    "M+ PopUp",
-    "M+ PopUp 2",
-    "M+ Romance",
-    "M+ Terror",
-    "M+ Vamos 2",
-    "M+ Vamos 3",
-    "M+ Vamos HD",
-    "Mega",
-    "Movistar Plus HD",
-    "Nat Geo Wild HD",
-    "National Geographic HD",
-    "Neox",
-    "Nick JR",
-    "Nickelodeon HD",
-    "Odisea",
-    "Primera Federación",
-    "Primera Federación (DAZN)",
-    "STAR Channel HD",
-    "SkyShowtime",
-    "Somos",
-    "Somos Cine",
-    "Squirrel 2",
-    "Squirrel TV",
-    "Star TVE HD",
-    "Sundance TV",
-    "TCM HD",
-    "TR3CE",
-    "TRECE",
-    "Teledeporte",
-    "Tennis Channel",
-    "Vamos BAR",
-    "Vamos BAR 2",
-    "VinTV",
-    "Warner TV HD",
-    "XTRM"
-];
-
-const PIXELS_PER_MINUTE = 3;
-
-let channels = {};
-let programmes = [];
-let days = [];
-const EPG_URL = "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv.xml?t=" + Date.now();
-
-cargarEPGInternet();
-
-document.getElementById("days").addEventListener("change", render);
-document.getElementById("search").addEventListener("keyup", render);
-
-async function cargarEPGInternet(){
-document.getElementById("status").textContent = "Descargando EPG...";
-try{
-const response = await fetch(EPG_URL);
-if(!response.ok) throw new Error("HTTP " + response.status);
-const texto = await response.text();
-const xml = new DOMParser().parseFromString(texto, "text/xml");
-parseXML(xml);
-}catch(err){
-document.getElementById("status").textContent = "Error: " + err.message;
-console.error(err);
-}
-}
-
-function loadXML(e){
-const file = e.target.files[0];
-if(!file)return;
-document.getElementById("status").textContent = "Leyendo XML...";
-const reader = new FileReader();
-reader.onload = evt => {
-const xml = new DOMParser().parseFromString(evt.target.result, "text/xml");
-parseXML(xml);
-};
-reader.readAsText(file);
-}
-
-function parseXML(xml){
-channels = {};
-programmes = [];
-days = [];
-
-xml.querySelectorAll("channel").forEach(ch=>{
-const id = ch.getAttribute("id");
-const name = ch.querySelector("display-name");
-if(name){
-channels[id] = name.textContent;
-}
-});
-
-const daySet = new Set();
-
-xml.querySelectorAll("programme").forEach(p=>{
-const start = p.getAttribute("start");
-const stop = p.getAttribute("stop");
-const day = start.substring(0,8);
-daySet.add(day);
-
-programmes.push({
-channel: p.getAttribute("channel"),
-start: start,
-stop: stop,
-title: p.querySelector("title") ? p.querySelector("title").textContent : "",
-desc: p.querySelector("desc") ? p.querySelector("desc").textContent : ""
-});
-});
-
-days = [...daySet].sort();
-
-const daySelect = document.getElementById("days");
-daySelect.innerHTML = "";
-days.forEach(d=>{
-const opt = document.createElement("option");
-opt.value = d;
-opt.textContent = d;
-daySelect.appendChild(opt);
-});
-
-document.getElementById("status").textContent = Object.keys(channels).length + " canales / " + programmes.length + " programas";
-render();
-}
+// ... (mantén todo tu código anterior de canales, variables y funciones de carga igual) ...
 
 function render(){
 const grid = document.getElementById("grid");
@@ -375,16 +15,20 @@ timeline.innerHTML += '<div class="hour">' + String(h).padStart(2,"0") + ':00</d
 
 grid.appendChild(timeline);
 
-const selectedDay = document.getElementById("days").value;
+const selectedDay = document.getElementById("days").value; // Formato "YYYYMMDD"
 const filter = document.getElementById("search").value.toLowerCase();
+
+// Convertir selectedDay a objeto Date (a las 00:00:00)
+const year = parseInt(selectedDay.substring(0,4));
+const month = parseInt(selectedDay.substring(4,6)) - 1;
+const day = parseInt(selectedDay.substring(6,8));
+const selectedDateTimestamp = new Date(year, month, day, 0, 0, 0).getTime();
 
 Object.keys(channels)
 .sort((a,b)=> channels[a].localeCompare(channels[b]))
 .forEach(id=>{
 
-// FILTRAR: Si la lista de permitidos tiene elementos y el canal actual NO está en ella, lo saltamos
 if(CANALES_PERMITIDOS.length > 0 && !CANALES_PERMITIDOS.includes(id)) return;
-
 if(!channels[id].toLowerCase().includes(filter)) return;
 
 const row = document.createElement("div");
@@ -399,37 +43,65 @@ area.className = "programArea";
 
 programmes
 .filter(p => {
+if (p.channel !== id) return false;
 
-    if (p.channel !== id) return false;
+// Parsear fecha y hora XMLTV (YYYYMMDDHHmmss)
+const pStartYear = parseInt(p.start.substring(0,4));
+const pStartMonth = parseInt(p.start.substring(4,6)) - 1;
+const pStartDay = parseInt(p.start.substring(6,8));
+const pStartHour = parseInt(p.start.substring(8,10));
+const pStartMin = parseInt(p.start.substring(10,12));
+const pStartSec = parseInt(p.start.substring(12,14) || 0);
 
-    const startDay = p.start.substring(0,8);
-    const stopDay = p.stop.substring(0,8);
+const pStopYear = parseInt(p.stop.substring(0,4));
+const pStopMonth = parseInt(p.stop.substring(4,6)) - 1;
+const pStopDay = parseInt(p.stop.substring(6,8));
+const pStopHour = parseInt(p.stop.substring(8,10));
+const pStopMin = parseInt(p.stop.substring(10,12));
+const pStopSec = parseInt(p.stop.substring(12,14) || 0);
 
-    return startDay === selectedDay ||
-           stopDay === selectedDay;
+const startDate = new Date(pStartYear, pStartMonth, pStartDay, pStartHour, pStartMin, pStartSec);
+const stopDate = new Date(pStopYear, pStopMonth, pStopDay, pStopHour, pStopMin, pStopSec);
 
+const dayStart = selectedDateTimestamp;
+const dayEnd = selectedDateTimestamp + 24 * 60 * 60 * 1000;
+
+// El programa se solapa con el día seleccionado si empieza antes del fin del día y termina después del inicio del día
+return startDate < dayEnd && stopDate > dayStart;
 })
 .forEach(p=>{
+const pStartYear = parseInt(p.start.substring(0,4));
+const pStartMonth = parseInt(p.start.substring(4,6)) - 1;
+const pStartDay = parseInt(p.start.substring(6,8));
+const pStartHour = parseInt(p.start.substring(8,10));
+const pStartMin = parseInt(p.start.substring(10,12));
 
-const startHour = parseInt(p.start.substr(8,2));
-const startMin = parseInt(p.start.substr(10,2));
-const stopHour = parseInt(p.stop.substr(8,2));
-const stopMin = parseInt(p.stop.substr(10,2));
+const pStopYear = parseInt(p.stop.substring(0,4));
+const pStopMonth = parseInt(p.stop.substring(4,6)) - 1;
+const pStopDay = parseInt(p.stop.substring(6,8));
+const pStopHour = parseInt(p.stop.substring(8,10));
+const pStopMin = parseInt(p.stop.substring(10,12));
 
-const start = startHour * 60 + startMin;
-const stop = stopHour * 60 + stopMin;
+const startDate = new Date(pStartYear, pStartMonth, pStartDay, pStartHour, pStartMin);
+const stopDate = new Date(pStopYear, pStopMonth, pStopDay, pStopHour, pStopMin);
 
-let duration = stop - start;
+const dayStart = selectedDateTimestamp;
+const dayEnd = selectedDateTimestamp + 24 * 60 * 60 * 1000;
 
-if(duration <= 0){
-    duration += 1440;
-}
+// Calcular offset en minutos desde las 00:00 del día seleccionado
+let startMinutes = (startDate.getTime() - dayStart) / (1000 * 60);
+let stopMinutes = (stopDate.getTime() - dayStart) / (1000 * 60);
 
-duration = Math.max(15, duration);
+// Recortar si el programa empieza antes de las 00:00 de este día o termina después de las 24:00
+if (startMinutes < 0) startMinutes = 0;
+if (stopMinutes > 1440) stopMinutes = 1440;
+
+let duration = stopMinutes - startMinutes;
+duration = Math.max(15, duration); // Mínimo visual de 15 minutos
 
 const div = document.createElement("div");
 div.className = "program";
-div.style.left = (start * PIXELS_PER_MINUTE) + "px";
+div.style.left = (startMinutes * PIXELS_PER_MINUTE) + "px";
 div.style.width = (duration * PIXELS_PER_MINUTE) + "px";
 div.textContent = p.title;
 
@@ -452,19 +124,5 @@ grid.appendChild(row);
 sincronizarScroll();
 }
 
-function sincronizarScroll(){
-const grid = document.getElementById("grid");
-const bottom = document.getElementById("bottomScroll");
-
-bottom.onscroll = function(){
-grid.scrollLeft = bottom.scrollLeft;
-};
-
-grid.onscroll = function(){
-bottom.scrollLeft = grid.scrollLeft;
-};
-}
+// ... (resto de funciones como sincronizarScroll, etc.)
 </script>
-
-</body>
-</html>
