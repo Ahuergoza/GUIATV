@@ -1,33 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>PAPITO TV - ¿DÓNDE PONEN ESO?</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#0f172a;
+color:white;
+overflow:hidden;
+}
+
+#top{
+padding:10px;
+background:#0284c7;
+}
+
+#controls{
+padding:10px;
+background:#1e293b;
+display:flex;
+gap:10px;
+align-items:center;
+flex-wrap:wrap;
+}
+
+#search{
+width:250px;
+padding:6px;
+}
+
+#grid{
+height:calc(100vh - 150px);
+overflow:auto;
+white-space:nowrap;
+}
+
+.timeline{
+display:flex;
+width:4540px;
+min-width:4540px;
+position:sticky;
+top:0;
+z-index:10;
+background:#0284c7;
+}
+
+.channelCell{
+width:220px;
+min-width:220px;
+padding:8px;
+background:#111827;
+position:sticky;
+left:0;
+z-index:9;
+border-right:1px solid #444;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+
+.hour{
+width:180px;
+min-width:180px;
+padding:8px;
+text-align:center;
+border-right:1px solid #0ea5e9;
+}
+
+.row{
+display:flex;
+width:4540px;
+min-width:4540px;
+height:50px;
+border-bottom:1px solid #334155;
+}
+
+.programArea{
+position:relative;
+width:4320px;
+min-width:4320px;
+height:50px;
+}
+
+.program{
+position:absolute;
+height:38px;
+top:5px;
+background:#475569;
+border-radius:4px;
+overflow:hidden;
+font-size:11px;
+padding:2px;
+cursor:pointer;
+white-space:nowrap;
+}
+
+.program:hover{
+background:#64748b;
+}
+
+#bottomScroll{
+height:20px;
+overflow-x:auto;
+overflow-y:hidden;
+background:#1e293b;
+}
+
+#info{
+position:fixed;
+right:10px;
+top:110px;
+width:340px;
+max-height:500px;
+overflow:auto;
+background:#1e293b;
+padding:10px;
+border:1px solid #475569;
+}
+</style>
+</head>
+
+<body>
+
+<div id="top">
+<h2>📺 PAPITO TV - ¿DÓNDE PONEN ESO?</h2>
+</div>
+
+<div id="controls">
+<input type="file" id="xmlFile">
+<input type="text" id="search" placeholder="Buscar canal">
+<select id="days"></select>
+<span id="status"></span>
+</div>
+
+<div id="grid"></div>
+
+<div id="bottomScroll">
+<div style="width:4540px;height:1px;"></div>
+</div>
+
+<div id="info">
+Seleccione un programa
+</div>
+
 <script>
-// ... (mantén todo tu código anterior de canales, variables y funciones de carga igual) ...
+const CANALES_PERMITIDOS = [
+    "La 1 HD", "La 2", "Antena 3 HD", "Cuatro HD", "Telecinco HD", "La Sexta HD",
+    "TPA7 Asturias", "TPA8 Asturias", "24 Horas", "AMC HD", "AXN HD", "BOM Cine",
+    "Be Mad", "Boing", "Calle 13 HD", "Canal Cocina", "Canal Hollywood HD", "Clan",
+    "Comedy Central HD", "Cosmo HD", "DARK", "DMAX", "Energy", "Eurosport 1 HD",
+    "Factoría de Ficción", "Historia", "M+ Acción HD", "M+ Cine Español", "M+ Clásicos HD",
+    "M+ Comedia HD", "M+ Deportes HD", "M+ Documentales HD", "M+ Drama HD", "M+ Estrenos HD",
+    "M+ LaLiga HD", "M+ Liga de Campeones HD", "M+ Vamos HD", "Mega", "Nat Geo Wild HD",
+    "National Geographic HD", "Neox", "Odisea", "STAR Channel HD", "Sundance TV",
+    "TCM HD", "TR3CE", "TRECE", "Teledeporte", "Warner TV HD", "XTRM"
+];
+
+const PIXELS_PER_MINUTE = 3;
+let channels = {};
+let programmes = [];
+let days = [];
+
+document.getElementById("xmlFile").addEventListener("change", loadXML);
+document.getElementById("days").addEventListener("change", render);
+document.getElementById("search").addEventListener("keyup", render);
+
+function loadXML(e){
+const file = e.target.files[0];
+if(!file) return;
+document.getElementById("status").textContent = "Leyendo XML...";
+const reader = new FileReader();
+reader.onload = evt => {
+try {
+const xml = new DOMParser().parseFromString(evt.target.result, "text/xml");
+parseXML(xml);
+} catch(err) {
+document.getElementById("status").textContent = "Error al parsear XML";
+console.error(err);
+}
+};
+reader.readAsText(file);
+}
+
+function parseXML(xml){
+channels = {};
+programmes = [];
+days = new Set();
+
+xml.querySelectorAll("channel").forEach(ch=>{
+const id = ch.getAttribute("id");
+const name = ch.querySelector("display-name");
+if(name){
+channels[id] = name.textContent;
+}
+});
+
+xml.querySelectorAll("programme").forEach(p=>{
+const start = p.getAttribute("start");
+const stop = p.getAttribute("stop");
+if(!start || !stop) return;
+
+const day = start.substring(0,8);
+days.add(day);
+
+programmes.push({
+channel: p.getAttribute("channel"),
+start: start,
+stop: stop,
+title: p.querySelector("title") ? p.querySelector("title").textContent : "Sin título",
+desc: p.querySelector("desc") ? p.querySelector("desc").textContent : ""
+});
+});
+
+days = [...days].sort();
+
+const daySelect = document.getElementById("days");
+daySelect.innerHTML = "";
+days.forEach(d=>{
+const opt = document.createElement("option");
+opt.value = d;
+opt.textContent = d.substring(6,8) + "/" + d.substring(4,6) + "/" + d.substring(0,4);
+daySelect.appendChild(opt);
+});
+
+document.getElementById("status").textContent = Object.keys(channels).length + " canales / " + programmes.length + " programas";
+render();
+}
+
+function parseXMLDate(str){
+if(!str || str.length < 12) return new Date();
+const y = parseInt(str.substring(0,4));
+const m = parseInt(str.substring(4,6)) - 1;
+const d = parseInt(str.substring(6,8));
+const h = parseInt(str.substring(8,10));
+const min = parseInt(str.substring(10,12));
+const s = parseInt(str.substring(12,14) || 0);
+return new Date(y, m, d, h, min, s);
+}
 
 function render(){
 const grid = document.getElementById("grid");
 grid.innerHTML = "";
 
+const selectedDay = document.getElementById("days").value;
+if(!selectedDay) return;
+
 const timeline = document.createElement("div");
 timeline.className = "timeline";
 timeline.innerHTML = '<div class="channelCell">Canal</div>';
-
 for(let h=0; h<24; h++){
 timeline.innerHTML += '<div class="hour">' + String(h).padStart(2,"0") + ':00</div>';
 }
-
 grid.appendChild(timeline);
 
-const selectedDay = document.getElementById("days").value; // Formato "YYYYMMDD"
-const filter = document.getElementById("search").value.toLowerCase();
-
-// Convertir selectedDay a objeto Date (a las 00:00:00)
 const year = parseInt(selectedDay.substring(0,4));
 const month = parseInt(selectedDay.substring(4,6)) - 1;
 const day = parseInt(selectedDay.substring(6,8));
-const selectedDateTimestamp = new Date(year, month, day, 0, 0, 0).getTime();
+const dayStartTimestamp = new Date(year, month, day, 0, 0, 0).getTime();
+const dayEndTimestamp = dayStartTimestamp + 24 * 60 * 60 * 1000;
+
+const filter = document.getElementById("search").value.toLowerCase();
 
 Object.keys(channels)
 .sort((a,b)=> channels[a].localeCompare(channels[b]))
 .forEach(id=>{
-
 if(CANALES_PERMITIDOS.length > 0 && !CANALES_PERMITIDOS.includes(id)) return;
 if(!channels[id].toLowerCase().includes(filter)) return;
 
@@ -44,60 +283,22 @@ area.className = "programArea";
 programmes
 .filter(p => {
 if (p.channel !== id) return false;
-
-// Parsear fecha y hora XMLTV (YYYYMMDDHHmmss)
-const pStartYear = parseInt(p.start.substring(0,4));
-const pStartMonth = parseInt(p.start.substring(4,6)) - 1;
-const pStartDay = parseInt(p.start.substring(6,8));
-const pStartHour = parseInt(p.start.substring(8,10));
-const pStartMin = parseInt(p.start.substring(10,12));
-const pStartSec = parseInt(p.start.substring(12,14) || 0);
-
-const pStopYear = parseInt(p.stop.substring(0,4));
-const pStopMonth = parseInt(p.stop.substring(4,6)) - 1;
-const pStopDay = parseInt(p.stop.substring(6,8));
-const pStopHour = parseInt(p.stop.substring(8,10));
-const pStopMin = parseInt(p.stop.substring(10,12));
-const pStopSec = parseInt(p.stop.substring(12,14) || 0);
-
-const startDate = new Date(pStartYear, pStartMonth, pStartDay, pStartHour, pStartMin, pStartSec);
-const stopDate = new Date(pStopYear, pStopMonth, pStopDay, pStopHour, pStopMin, pStopSec);
-
-const dayStart = selectedDateTimestamp;
-const dayEnd = selectedDateTimestamp + 24 * 60 * 60 * 1000;
-
-// El programa se solapa con el día seleccionado si empieza antes del fin del día y termina después del inicio del día
-return startDate < dayEnd && stopDate > dayStart;
+const startDate = parseXMLDate(p.start);
+const stopDate = parseXMLDate(p.stop);
+return startDate < dayEndTimestamp && stopDate > dayStartTimestamp;
 })
 .forEach(p=>{
-const pStartYear = parseInt(p.start.substring(0,4));
-const pStartMonth = parseInt(p.start.substring(4,6)) - 1;
-const pStartDay = parseInt(p.start.substring(6,8));
-const pStartHour = parseInt(p.start.substring(8,10));
-const pStartMin = parseInt(p.start.substring(10,12));
+const startDate = parseXMLDate(p.start);
+const stopDate = parseXMLDate(p.stop);
 
-const pStopYear = parseInt(p.stop.substring(0,4));
-const pStopMonth = parseInt(p.stop.substring(4,6)) - 1;
-const pStopDay = parseInt(p.stop.substring(6,8));
-const pStopHour = parseInt(p.stop.substring(8,10));
-const pStopMin = parseInt(p.stop.substring(10,12));
+let startMinutes = (startDate.getTime() - dayStartTimestamp) / (1000 * 60);
+let stopMinutes = (stopDate.getTime() - dayStartTimestamp) / (1000 * 60);
 
-const startDate = new Date(pStartYear, pStartMonth, pStartDay, pStartHour, pStartMin);
-const stopDate = new Date(pStopYear, pStopMonth, pStopDay, pStopHour, pStopMin);
-
-const dayStart = selectedDateTimestamp;
-const dayEnd = selectedDateTimestamp + 24 * 60 * 60 * 1000;
-
-// Calcular offset en minutos desde las 00:00 del día seleccionado
-let startMinutes = (startDate.getTime() - dayStart) / (1000 * 60);
-let stopMinutes = (stopDate.getTime() - dayStart) / (1000 * 60);
-
-// Recortar si el programa empieza antes de las 00:00 de este día o termina después de las 24:00
 if (startMinutes < 0) startMinutes = 0;
 if (stopMinutes > 1440) stopMinutes = 1440;
 
 let duration = stopMinutes - startMinutes;
-duration = Math.max(15, duration); // Mínimo visual de 15 minutos
+duration = Math.max(15, duration);
 
 const div = document.createElement("div");
 div.className = "program";
@@ -124,5 +325,18 @@ grid.appendChild(row);
 sincronizarScroll();
 }
 
-// ... (resto de funciones como sincronizarScroll, etc.)
+function sincronizarScroll(){
+const grid = document.getElementById("grid");
+const bottom = document.getElementById("bottomScroll");
+
+bottom.onscroll = function(){
+grid.scrollLeft = bottom.scrollLeft;
+};
+grid.onscroll = function(){
+bottom.scrollLeft = grid.scrollLeft;
+};
+}
 </script>
+
+</body>
+</html>
