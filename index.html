@@ -398,7 +398,7 @@ const area = document.createElement("div");
 area.className = "programArea";
 
 programmes
-.filter(p=> p.channel === id && p.start.startsWith(selectedDay))
+.filter(p=> p.channel === id)
 .forEach(p=>{
 const startHour = parseInt(p.start.substr(8,2));
 const startMin = parseInt(p.start.substr(10,2));
