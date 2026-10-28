@@ -407,7 +407,14 @@ const stopMin = parseInt(p.stop.substr(10,2));
 
 const start = startHour * 60 + startMin;
 const stop = stopHour * 60 + stopMin;
-const duration = Math.max(15, stop - start);
+
+let duration = stop - start;
+
+if(duration <= 0){
+    duration += 1440;
+}
+
+duration = Math.max(15, duration);
 
 const div = document.createElement("div");
 div.className = "program";
